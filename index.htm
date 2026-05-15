@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบจองคิวนัดหมาย</title>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        :root { --line-green: #06C755; --dark-gray: #333; }
+        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f4f4f9; color: var(--dark-gray); margin: 0; padding: 20px; }
+        .container { max-width: 400px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h2 { color: var(--line-green); text-align: center; }
+        .profile-section { text-align: center; margin-bottom: 20px; }
+        .profile-img { width: 60px; height: 60px; border-radius: 50%; border: 2px solid var(--line-green); }
+
+        label { display: block; margin-top: 15px; font-weight: bold; }
+        input[type="date"] { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+
+        .time-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+        .time-btn { padding: 10px; border: 1px solid #ddd; border-radius: 8px; background: white; cursor: pointer; transition: 0.3s; }
+        .time-btn.active { background: var(--line-green); color: white; border-color: var(--line-green); }
+        .time-btn:disabled { background: #eee; color: #aaa; cursor: not-allowed; }
+
+        .btn-confirm { width: 100%; background: var(--line-green); color: white; border: none; padding: 15px; border-radius: 10px; font-size: 18px; font-weight: bold; margin-top: 25px; cursor: pointer; }
+        .btn-edit { background: #ff9800; margin-top: 10px; }
+
+        #summary-section { display: none; text-align: center; border-top: 2px dashed #eee; margin-top: 20px; padding-top: 20px; }
+        .badge { background: #e8f5e9; color: #2e7d32; padding: 5px 10px; border-radius: 5px; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="profile-section">
+        <img id="userImg" class="profile-img" src="https://via.placeholder.com/60" alt="Profile">
+        <p id="userName">กำลังโหลดข้อมูล...</p>
+    </div>
+
+    <h2>จองคิวนัดหมาย</h2>
+
+    <div id="booking-form">
+        <label>เลือกวันที่:</label>
+        <input type="date" id="datePicker" onchange="resetTimeSelection()">
+
+        <label>เลือกเวลาที่สะดวก:</label>
+        <div class="time-grid" id="timeGrid">
+            <!-- ปุ่มเวลาจะถูกสร้างด้วย JS -->
+        </div>
+
+        <button class="btn-confirm" id="confirmBtn" onclick="handleBooking()">ยืนยันการจอง</button>
+    </div>
+
+    <div id="summary-section">
+        <span class="badge">คุณมีการนัดหมายแล้ว</span>
+        <p id="summaryText"></p>
+        <button class="btn-confirm btn-edit" onclick="showEditForm()">แก้ไขข้อมูลการจอง</button>
+    </div>
+</div>
+
+<script>
+    const times = ["09:00", "10:00", "11:00", "13:00", "14:00", "15:00"];
+    let selectedTime = "";
+    let userProfile = null;
+
+    async function initLIFF() {
+        try {
+            await liff.init({ liffId: "1655947825-VavZD7b1" }); // เปลี่ยนเป็น LIFF ID ของคุณ
+            if (!liff.isLoggedIn()) {
+                liff.login();
+            } else {
+                userProfile = await liff.getProfile();
+                document.getElementById("userName").innerText = userProfile.displayName;
+                document.getElementById("userImg").src = userProfile.pictureUrl;
+                renderTimeButtons();
+                checkExistingBooking();
+            }
+        } catch (error) {
+            console.error("LIFF Init Error", error);
+        }
+    }
+
+    function renderTimeButtons() {
+        const grid = document.getElementById("timeGrid");
+        grid.innerHTML = "";
+        times.forEach(t => {
+            const btn = document.createElement("button");
+            btn.className = "time-btn";
+            btn.innerText = t;
+            btn.onclick = () => {
+                document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedTime = t;
+            };
+            grid.appendChild(btn);
+        });
+    }
+
+    function resetTimeSelection() {
+        selectedTime = "";
+        document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+    }
+
+    function handleBooking() {
+        const date = document.getElementById("datePicker").value;
+        if (!date || !selectedTime) {
+            alert("กรุณาเลือกวันและเวลาให้ครบถ้วน");
+            return;
+        }
+
+        const bookingData = { date, time: selectedTime };
+        localStorage.setItem(`booking_${userProfile.userId}`, JSON.stringify(bookingData));
+
+        liff.sendMessages([{
+            type: 'text',
+            text: `📢 ยืนยันนัดหมายสำเร็จ!\n👤 คุณ: ${userProfile.displayName}\n📅 วันที่: ${date}\n⏰ เวลา: ${selectedTime}\n\nขอบคุณที่ใช้บริการครับ`
+        }]).then(() => {
+            alert("จองสำเร็จ!");
+            liff.closeWindow();
+        });
+    }
+
+    function checkExistingBooking() {
+        const saved = localStorage.getItem(`booking_${userProfile.userId}`);
+        if (saved) {
+            const data = JSON.parse(saved);
+            document.getElementById("booking-form").style.display = "none";
+            document.getElementById("summary-section").style.display = "block";
+            document.getElementById("summaryText").innerHTML = `<b>วันที่:</b> ${data.date}<br><b>เวลา:</b> ${data.time}`;
+        }
+    }
+
+    function showEditForm() {
+        document.getElementById("booking-form").style.display = "block";
+        document.getElementById("summary-section").style.display = "none";
+    }
+
+    initLIFF();
+</script>
+
+</body>
+</html>
