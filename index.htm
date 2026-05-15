@@ -111,7 +111,7 @@
     function handleBooking() {
         const dateInput = document.getElementById("datePicker").value;
         if (!dateInput || !selectedTime) {
-            alert("กรุณาเลือกวันและเวลาให้ครบถ้วนครับ");
+            alert("กรุณาเลือกวันและเวลาให้ครบถ้วนค่ะ");
             return;
         }
 
@@ -126,9 +126,9 @@
 
         liff.sendMessages([{
             type: 'text',
-            text: `📢 ยืนยันนัดหมายสำเร็จ!\n👤 คุณ: ${userProfile.displayName}\n📅 วันที่: ${formattedDate}\n⏰ เวลา: ${selectedTime}\n\nหากต้องการแก้ไข เข้ามาที่เมนูเดิมได้เลยครับ`
+            text: `📢 ยืนยันนัดหมายสำเร็จ!\n👤 คุณ: ${userProfile.displayName}\n📅 วันที่: ${formattedDate}\n⏰ เวลา: ${selectedTime}\n\nหากต้องการแก้ไข เข้ามาที่เมนูเดิมได้เลยค่ะ`
         }]).then(() => {
-            alert("บันทึกข้อมูลเรียบร้อยแล้ว");
+            alert("บันทึกข้อมูลเรียบร้อยแล้วค่ะ");
             liff.closeWindow();
         });
     }
