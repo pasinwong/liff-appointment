@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>จองคิวออนไลน์</title>
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 20px; }
+        button { background: #00b900; color: white; border: none; padding: 10px 20px; border-radius: 5px; font-size: 16px; }
+    </style>
+</head>
+<body>
+    <h1>ระบบจองคิว</h1>
+    <p id="userName">กำลังโหลดข้อมูล...</p>
+    <input type="date" id="datePicker"><br><br>
+    <button onclick="booking()">ยืนยันการจอง</button>
+
+    <script>
+        async function main() {
+            await liff.init({ liffId: "1655947825-VavZD7b1" }); // ใส่ ID ของคุณ
+            if (liff.isLoggedIn()) {
+                const profile = await liff.getProfile();
+                document.getElementById("userName").innerText = "สวัสดีคุณ " + profile.displayName;
+            } else {
+                liff.login();
+            }
+        }
+        main();
+
+        function booking() {
+            const date = document.getElementById("datePicker").value;
+            if(!date) return alert("เลือกวันที่ก่อนครับ");
+            alert("จองวันที่ " + date + " สำเร็จ!");
+            liff.closeWindow(); // จองเสร็จแล้วปิดหน้าจอ
+        }
+    </script>
+</body>
+</html>
