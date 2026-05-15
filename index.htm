@@ -12,20 +12,21 @@
         h2 { color: var(--line-green); text-align: center; }
         .profile-section { text-align: center; margin-bottom: 20px; }
         .profile-img { width: 60px; height: 60px; border-radius: 50%; border: 2px solid var(--line-green); }
-
+        
         label { display: block; margin-top: 15px; font-weight: bold; }
-        input[type="date"] { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
-
+        input[type="date"] { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; outline: none; }
+        input[type="date"]:focus { border-color: var(--line-green); }
+        
         .time-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
-        .time-btn { padding: 10px; border: 1px solid #ddd; border-radius: 8px; background: white; cursor: pointer; transition: 0.3s; }
+        .time-btn { padding: 12px; border: 1px solid #ddd; border-radius: 8px; background: white; cursor: pointer; transition: 0.3s; font-size: 14px; }
         .time-btn.active { background: var(--line-green); color: white; border-color: var(--line-green); }
-        .time-btn:disabled { background: #eee; color: #aaa; cursor: not-allowed; }
 
         .btn-confirm { width: 100%; background: var(--line-green); color: white; border: none; padding: 15px; border-radius: 10px; font-size: 18px; font-weight: bold; margin-top: 25px; cursor: pointer; }
         .btn-edit { background: #ff9800; margin-top: 10px; }
-
+        
         #summary-section { display: none; text-align: center; border-top: 2px dashed #eee; margin-top: 20px; padding-top: 20px; }
-        .badge { background: #e8f5e9; color: #2e7d32; padding: 5px 10px; border-radius: 5px; font-size: 14px; }
+        .badge { background: #e8f5e9; color: #2e7d32; padding: 5px 12px; border-radius: 20px; font-size: 14px; font-weight: bold; }
+        .summary-box { background: #f9f9f9; padding: 15px; border-radius: 10px; margin: 15px 0; line-height: 1.6; }
     </style>
 </head>
 <body>
@@ -39,20 +40,20 @@
     <h2>จองคิวนัดหมาย</h2>
 
     <div id="booking-form">
-        <label>เลือกวันที่:</label>
+        <label>เลือกวันที่นัดหมาย:</label>
         <input type="date" id="datePicker" onchange="resetTimeSelection()">
 
-        <label>เลือกเวลาที่สะดวก:</label>
-        <div class="time-grid" id="timeGrid">
-            <!-- ปุ่มเวลาจะถูกสร้างด้วย JS -->
-        </div>
+        <label>เลือกเวลา:</label>
+        <div class="time-grid" id="timeGrid"></div>
 
         <button class="btn-confirm" id="confirmBtn" onclick="handleBooking()">ยืนยันการจอง</button>
     </div>
 
     <div id="summary-section">
-        <span class="badge">คุณมีการนัดหมายแล้ว</span>
-        <p id="summaryText"></p>
+        <span class="badge">ตรวจสอบข้อมูลนัดหมาย</span>
+        <div class="summary-box">
+            <div id="summaryText"></div>
+        </div>
         <button class="btn-confirm btn-edit" onclick="showEditForm()">แก้ไขข้อมูลการจอง</button>
     </div>
 </div>
@@ -64,7 +65,7 @@
 
     async function initLIFF() {
         try {
-            await liff.init({ liffId: "1655947825-VavZD7b1" }); // เปลี่ยนเป็น LIFF ID ของคุณ
+            await liff.init({ liffId: "1655947825-VavZD7b1" }); 
             if (!liff.isLoggedIn()) {
                 liff.login();
             } else {
@@ -77,6 +78,13 @@
         } catch (error) {
             console.error("LIFF Init Error", error);
         }
+    }
+
+    // ฟังก์ชันแปลงวันที่เป็น DD/MM/YYYY
+    function formatDateDisplay(dateStr) {
+        if (!dateStr) return "";
+        const [year, month, day] = dateStr.split('-');
+        return `${day}/${month}/${year}`;
     }
 
     function renderTimeButtons() {
@@ -101,20 +109,26 @@
     }
 
     function handleBooking() {
-        const date = document.getElementById("datePicker").value;
-        if (!date || !selectedTime) {
-            alert("กรุณาเลือกวันและเวลาให้ครบถ้วน");
+        const dateInput = document.getElementById("datePicker").value;
+        if (!dateInput || !selectedTime) {
+            alert("กรุณาเลือกวันและเวลาให้ครบถ้วนครับ");
             return;
         }
 
-        const bookingData = { date, time: selectedTime };
+        const formattedDate = formatDateDisplay(dateInput);
+        const bookingData = { 
+            rawDate: dateInput, 
+            displayDate: formattedDate, 
+            time: selectedTime 
+        };
+
         localStorage.setItem(`booking_${userProfile.userId}`, JSON.stringify(bookingData));
 
         liff.sendMessages([{
             type: 'text',
-            text: `📢 ยืนยันนัดหมายสำเร็จ!\n👤 คุณ: ${userProfile.displayName}\n📅 วันที่: ${date}\n⏰ เวลา: ${selectedTime}\n\nขอบคุณที่ใช้บริการครับ`
+            text: `📢 ยืนยันนัดหมายสำเร็จ!\n👤 คุณ: ${userProfile.displayName}\n📅 วันที่: ${formattedDate}\n⏰ เวลา: ${selectedTime}\n\nหากต้องการแก้ไข เข้ามาที่เมนูเดิมได้เลยครับ`
         }]).then(() => {
-            alert("จองสำเร็จ!");
+            alert("บันทึกข้อมูลเรียบร้อยแล้ว");
             liff.closeWindow();
         });
     }
@@ -125,7 +139,7 @@
             const data = JSON.parse(saved);
             document.getElementById("booking-form").style.display = "none";
             document.getElementById("summary-section").style.display = "block";
-            document.getElementById("summaryText").innerHTML = `<b>วันที่:</b> ${data.date}<br><b>เวลา:</b> ${data.time}`;
+            document.getElementById("summaryText").innerHTML = `📅 <b>วันที่:</b> ${data.displayDate}<br>⏰ <b>เวลา:</b> ${data.time} น.`;
         }
     }
 
