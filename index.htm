@@ -27,6 +27,7 @@
         #summary-section { display: none; text-align: center; border-top: 2px dashed #eee; margin-top: 20px; padding-top: 20px; }
         .badge { background: #e8f5e9; color: #2e7d32; padding: 5px 12px; border-radius: 20px; font-size: 14px; font-weight: bold; }
         .summary-box { background: #f9f9f9; padding: 15px; border-radius: 10px; margin: 15px 0; line-height: 1.6; }
+        .no-time-msg { grid-column: span 3; text-align: center; color: #ff3b30; padding: 10px; font-size: 14px; }
     </style>
 </head>
 <body>
@@ -41,7 +42,7 @@
 
     <div id="booking-form">
         <label>เลือกวันที่นัดหมาย:</label>
-        <input type="date" id="datePicker" onchange="resetTimeSelection()">
+        <input type="date" id="datePicker" onchange="handleDateChange()">
 
         <label>เลือกเวลา:</label>
         <div class="time-grid" id="timeGrid"></div>
@@ -59,9 +60,23 @@
 </div>
 
 <script>
-    const times = ["10:00", "11:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
+    // 🎯 ขยายรอบเวลาให้จองได้จนถึงเวลา 22:00 น.
+    const times = [
+        "09:00", "10:00", "11:00", "12:00", 
+        "13:00", "14:00", "15:00", "16:00", 
+        "17:00", "18:00", "19:00", "20:00", 
+        "21:00", "22:00"
+    ];
     let selectedTime = "";
     let userProfile = null;
+
+    function getTodayString() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
 
     async function initLIFF() {
         try {
@@ -72,6 +87,15 @@
                 userProfile = await liff.getProfile();
                 document.getElementById("userName").innerText = userProfile.displayName;
                 document.getElementById("userImg").src = userProfile.pictureUrl;
+                
+                // ตั้งค่าเริ่มต้นของปฏิทินให้เป็น "วันนี้" โดยอัตโนมัติเพื่อความสะดวก
+                const today = getTodayString();
+                const datePicker = document.getElementById("datePicker");
+                datePicker.min = today;
+                if (!datePicker.value) {
+                    datePicker.value = today;
+                }
+                
                 renderTimeButtons();
                 checkExistingBooking();
             }
@@ -80,17 +104,34 @@
         }
     }
 
-    // ฟังก์ชันแปลงวันที่เป็น DD/MM/YYYY
     function formatDateDisplay(dateStr) {
         if (!dateStr) return "";
         const [year, month, day] = dateStr.split('-');
-        return `${day}/${month}/${year}`;
+        const thaiYear = parseInt(year) + 543; 
+        return `${day}/${month}/${thaiYear}`;
     }
 
     function renderTimeButtons() {
         const grid = document.getElementById("timeGrid");
         grid.innerHTML = "";
+        
+        const selectedDate = document.getElementById("datePicker").value;
+        const todayStr = getTodayString();
+        
+        const now = new Date();
+        const currentHours = String(now.getHours()).padStart(2, '0');
+        const currentMinutes = String(now.getMinutes()).padStart(2, '0');
+        const currentTimeStr = `${currentHours}:${currentMinutes}`;
+
+        let visibleButtonsCount = 0;
+
         times.forEach(t => {
+            // หากเลือกวันปัจจุบัน ปุ่มเวลาใดที่เลยเวลาปัจจุบันไปแล้ว จะไม่ถูกนำมาแสดง
+            if (selectedDate === todayStr && t <= currentTimeStr) {
+                return; 
+            }
+
+            visibleButtonsCount++;
             const btn = document.createElement("button");
             btn.className = "time-btn";
             btn.innerText = t;
@@ -101,17 +142,49 @@
             };
             grid.appendChild(btn);
         });
+
+        if (visibleButtonsCount === 0 && selectedDate !== "") {
+            grid.innerHTML = `<div class="no-time-msg">❌ รอบเวลาสำหรับวันนี้หมดแล้ว<br>กรุณาเลือกวันถัดไปค่ะ</div>`;
+        }
     }
 
-    function resetTimeSelection() {
-        selectedTime = "";
-        document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+    function handleDateChange() {
+        const datePicker = document.getElementById("datePicker");
+        const selectedDate = datePicker.value;
+        const todayStr = getTodayString();
+
+        if (selectedDate < todayStr && selectedDate !== "") {
+            alert("ไม่สามารถเลือกวันที่ย้อนหลังได้ค่ะ ระบบจะปรับเป็นวันปัจจุบันให้โดยอัตโนมัติ");
+            datePicker.value = todayStr;
+        }
+
+        selectedTime = ""; 
+        renderTimeButtons(); 
     }
 
     function handleBooking() {
         const dateInput = document.getElementById("datePicker").value;
+        const todayStr = getTodayString();
+
         if (!dateInput || !selectedTime) {
-            alert("กรุณาเลือกวันและเวลาให้ครบถ้วนค่ะ");
+            alert("กรุณาเลือกวันและเวลาให้ครบถ้วนครับ");
+            return;
+        }
+
+        if (dateInput < todayStr) {
+            alert("ไม่สามารถจองวันย้อนหลังได้ กรุณาเลือกวันที่ใหม่ค่ะ");
+            handleDateChange();
+            return;
+        }
+
+        const now = new Date();
+        const currentHours = String(now.getHours()).padStart(2, '0');
+        const currentMinutes = String(now.getMinutes()).padStart(2, '0');
+        const currentTimeStr = `${currentHours}:${currentMinutes}`;
+
+        if (dateInput === todayStr && selectedTime <= currentTimeStr) {
+            alert("เวลานี้เลยกำหนดแล้ว กรุณาเลือกเวลาอื่นใหม่ค่ะ");
+            handleDateChange(); 
             return;
         }
 
@@ -126,9 +199,9 @@
 
         liff.sendMessages([{
             type: 'text',
-            text: `📢 ยืนยันนัดหมายสำเร็จ!\n👤 คุณ: ${userProfile.displayName}\n📅 วันที่: ${formattedDate}\n⏰ เวลา: ${selectedTime}\n\nหากต้องการแก้ไข เข้ามาที่เมนูเดิมได้เลยค่ะ`
+            text: `📢 ยืนยันนัดหมายสำเร็จ!\n👤 คุณ: ${userProfile.displayName}\n📅 วันที่: ${formattedDate}\n⏰ เวลา: ${selectedTime} น.\n\nหากต้องการแก้ไขหรือดูข้อมูลคิว สามารถกดเข้าเมนูจองคิวเดิมได้ตลอดเวลาค่ะ`
         }]).then(() => {
-            alert("บันทึกข้อมูลเรียบร้อยแล้วค่ะ");
+            alert("บันทึกข้อมูลเรียบร้อยแล้ว");
             liff.closeWindow();
         });
     }
@@ -137,15 +210,29 @@
         const saved = localStorage.getItem(`booking_${userProfile.userId}`);
         if (saved) {
             const data = JSON.parse(saved);
-            document.getElementById("booking-form").style.display = "none";
-            document.getElementById("summary-section").style.display = "block";
-            document.getElementById("summaryText").innerHTML = `📅 <b>วันที่:</b> ${data.displayDate}<br>⏰ <b>เวลา:</b> ${data.time} น.`;
+            const now = new Date();
+            const bookingDateTime = new Date(`${data.rawDate}T${data.time}:00`);
+
+            if (now > bookingDateTime) {
+                localStorage.removeItem(`booking_${userProfile.userId}`);
+                alert("เลยเวลานัดหมายเดิมแล้ว กรุณาทำการนัดหมายใหม่ค่ะ");
+                document.getElementById("booking-form").style.display = "block";
+                document.getElementById("summary-section").style.display = "none";
+                renderTimeButtons();
+            } else {
+                document.getElementById("booking-form").style.display = "none";
+                document.getElementById("summary-section").style.display = "block";
+                document.getElementById("summaryText").innerHTML = `📅 <b>วันที่นัด:</b> ${data.displayDate}<br>⏰ <b>เวลานัด:</b> ${data.time} น.`;
+            }
+        } else {
+            renderTimeButtons();
         }
     }
 
     function showEditForm() {
         document.getElementById("booking-form").style.display = "block";
         document.getElementById("summary-section").style.display = "none";
+        renderTimeButtons(); 
     }
 
     initLIFF();
